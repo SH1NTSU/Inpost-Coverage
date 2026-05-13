@@ -1,0 +1,6 @@
+ALTER TABLE anchor_pois
+    ALTER COLUMN brand TYPE VARCHAR(255),
+    ALTER COLUMN name  TYPE VARCHAR(300);
+
+ALTER TABLE competitor_points
+    ALTER COLUMN name TYPE VARCHAR(300);

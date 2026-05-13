@@ -1,0 +1,27 @@
+# Go
+/bin/
+*.exe
+*.test
+*.out
+coverage.out
+
+# Env / secrets
+.env
+.env.*.local
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Node / React
+web/node_modules/
+web/dist/
+web/.vite/
+
+# OS
+.DS_Store
+
+# Docker
+docker-compose.override.yml
