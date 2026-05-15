@@ -18,9 +18,15 @@ type Config struct {
 }
 
 type Redis struct {
-	Addr string        `env:"REDIS_ADDR"`
-	DB   int           `env:"REDIS_DB" envDefault:"0"`
-	TTL  time.Duration `env:"REDIS_TTL" envDefault:"10m"`
+	// Either set REDIS_URL (e.g. rediss://default:pass@host:6380/0 — what
+	// Railway/Upstash hand you) and leave the rest blank, or set REDIS_ADDR
+	// + optional REDIS_PASSWORD/USERNAME for plain TCP. REDIS_URL wins if both.
+	URL      string        `env:"REDIS_URL"`
+	Addr     string        `env:"REDIS_ADDR"`
+	Username string        `env:"REDIS_USERNAME"`
+	Password string        `env:"REDIS_PASSWORD"`
+	DB       int           `env:"REDIS_DB" envDefault:"0"`
+	TTL      time.Duration `env:"REDIS_TTL" envDefault:"10m"`
 }
 
 type HTTP struct {

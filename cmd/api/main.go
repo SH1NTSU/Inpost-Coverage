@@ -44,13 +44,23 @@ func main() {
 	terrain := overpass.New("")
 
 	var c cache.Cache
-	if cfg.Redis.Addr != "" {
-		rc, err := cache.NewRedis(cfg.Redis.Addr, cfg.Redis.DB, cfg.Redis.TTL)
+	if cfg.Redis.URL != "" || cfg.Redis.Addr != "" {
+		rc, err := cache.NewRedis(cache.RedisConfig{
+			URL:      cfg.Redis.URL,
+			Addr:     cfg.Redis.Addr,
+			Username: cfg.Redis.Username,
+			Password: cfg.Redis.Password,
+			DB:       cfg.Redis.DB,
+		}, cfg.Redis.TTL)
 		if err != nil {
 			log.Warn("redis unavailable, using in-memory cache", "err", err)
 			c = cache.NewMemory(cfg.Redis.TTL)
 		} else {
-			log.Info("cache backend", "type", "redis", "addr", cfg.Redis.Addr, "ttl", cfg.Redis.TTL)
+			target := cfg.Redis.Addr
+			if cfg.Redis.URL != "" {
+				target = "(REDIS_URL)"
+			}
+			log.Info("cache backend", "type", "redis", "addr", target, "ttl", cfg.Redis.TTL)
 			c = rc
 		}
 	} else {

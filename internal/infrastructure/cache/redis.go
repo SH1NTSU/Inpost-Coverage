@@ -3,6 +3,7 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -13,14 +14,39 @@ type Redis struct {
 	ttl time.Duration
 }
 
-func NewRedis(addr string, db int, ttl time.Duration) (*Redis, error) {
-	rdb := redis.NewClient(&redis.Options{
-		Addr:         addr,
-		DB:           db,
-		DialTimeout:  2 * time.Second,
-		ReadTimeout:  500 * time.Millisecond,
-		WriteTimeout: 500 * time.Millisecond,
-	})
+// RedisConfig captures every way you might want to point at a Redis server.
+// Managed Redis (Railway / Upstash / Render) hands you a URL like
+// `rediss://default:pass@host:6380` — pass it via URL. Local development
+// without a password just uses Addr.
+type RedisConfig struct {
+	URL      string
+	Addr     string
+	Username string
+	Password string
+	DB       int
+}
+
+func NewRedis(cfg RedisConfig, ttl time.Duration) (*Redis, error) {
+	var opts *redis.Options
+	if cfg.URL != "" {
+		parsed, err := redis.ParseURL(cfg.URL)
+		if err != nil {
+			return nil, fmt.Errorf("parse REDIS_URL: %w", err)
+		}
+		opts = parsed
+	} else {
+		opts = &redis.Options{
+			Addr:     cfg.Addr,
+			Username: cfg.Username,
+			Password: cfg.Password,
+			DB:       cfg.DB,
+		}
+	}
+	opts.DialTimeout = 2 * time.Second
+	opts.ReadTimeout = 500 * time.Millisecond
+	opts.WriteTimeout = 500 * time.Millisecond
+
+	rdb := redis.NewClient(opts)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if err := rdb.Ping(ctx).Err(); err != nil {
