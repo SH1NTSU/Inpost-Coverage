@@ -82,13 +82,15 @@ type stubPointRepo struct {
 }
 
 func (s stubPointRepo) Upsert(context.Context, *domain.Point) error { return nil }
-func (s stubPointRepo) AllForCoverage(context.Context, string) ([]domain.CoveragePoint, error) {
+func (s stubPointRepo) AllForCoverage(context.Context, domain.BoundingBox) ([]domain.CoveragePoint, error) {
 	return s.points, nil
 }
 func (s stubPointRepo) BoundingBox(context.Context, string) (domain.BoundingBox, error) {
 	return s.bbox, nil
 }
-func (s stubPointRepo) ListCities(context.Context, int) ([]domain.CityInfo, error) { return nil, nil }
+func (s stubPointRepo) ListProvinces(context.Context, int) ([]domain.ProvinceInfo, error) {
+	return nil, nil
+}
 
 type stubCompetitorRepo struct{}
 

@@ -84,7 +84,7 @@ export interface GapSuggestion {
   nearest_competitor_network?: string;
   reason: string;
   
-  anchor: NearbyAnchor;
+  anchor: NearbyAnchor | null;
   
   nearby_anchors: NearbyAnchor[];
 }
@@ -113,9 +113,8 @@ export interface CompetitorPoint {
   fetched_at: string;
 }
 
-export interface CityInfo {
+export interface ProvinceInfo {
   name: string;
-  province: string;
   point_count: number;
   min_lat: number;
   min_lng: number;

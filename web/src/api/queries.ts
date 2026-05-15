@@ -6,31 +6,31 @@ import { api } from './client';
 import type { LockerStatus } from './contracts';
 
 export const queryKeys = {
-  cities: ['cities'] as const,
-  lockers: (status?: LockerStatus, city?: string) =>
-    ['lockers', status ?? 'all', city ?? 'all'] as const,
+  provinces: ['provinces'] as const,
+  lockers: (status?: LockerStatus, province?: string) =>
+    ['lockers', status ?? 'all', province ?? 'all'] as const,
   locker: (id: number) => ['lockers', id] as const,
-  coverageSummary: (city: string, cellM: number) =>
-    ['coverage', 'summary', city, cellM] as const,
-  coverageGridCells: (city: string, cellM: number) =>
-    ['coverage', 'grid-cells', city, cellM] as const,
-  coverageRecommendations: (city: string, limit: number) =>
-    ['coverage', 'recs', city, limit] as const,
-  competitors: (city: string) => ['coverage', 'competitors', city] as const,
+  coverageSummary: (province: string, cellM: number) =>
+    ['coverage', 'summary', province, cellM] as const,
+  coverageGridCells: (province: string, cellM: number) =>
+    ['coverage', 'grid-cells', province, cellM] as const,
+  coverageRecommendations: (province: string, limit: number) =>
+    ['coverage', 'recs', province, limit] as const,
+  competitors: (province: string) => ['coverage', 'competitors', province] as const,
 };
 
-export function useCities() {
+export function useProvinces() {
   return useQuery({
-    queryKey: queryKeys.cities,
-    queryFn: () => api.cities(),
+    queryKey: queryKeys.provinces,
+    queryFn: () => api.provinces(),
     staleTime: 5 * 60_000,
   });
 }
 
-export function useLockers(status?: LockerStatus, city?: string) {
+export function useLockers(status?: LockerStatus, province?: string) {
   return useQuery({
-    queryKey: queryKeys.lockers(status, city),
-    queryFn: () => api.lockers(status, city),
+    queryKey: queryKeys.lockers(status, province),
+    queryFn: () => api.lockers(status, province),
     staleTime: 5 * 60_000,
   });
 }
@@ -43,38 +43,38 @@ export function useLocker(id: number | undefined) {
   });
 }
 
-export function useCoverageSummary(city: string, cellM = 400) {
+export function useCoverageSummary(province: string, cellM = 800) {
   return useQuery({
-    queryKey: queryKeys.coverageSummary(city, cellM),
-    queryFn: () => api.coverageSummary(city, cellM),
-    enabled: !!city,
+    queryKey: queryKeys.coverageSummary(province, cellM),
+    queryFn: () => api.coverageSummary(province, cellM),
+    enabled: !!province,
     staleTime: 5 * 60_000,
   });
 }
 
-export function useCoverageGridCells(city: string, cellM = 400, enabled = true) {
+export function useCoverageGridCells(province: string, cellM = 800, enabled = true) {
   return useQuery({
-    queryKey: queryKeys.coverageGridCells(city, cellM),
-    queryFn: () => api.coverageGridCells(city, cellM),
-    enabled: !!city && enabled,
+    queryKey: queryKeys.coverageGridCells(province, cellM),
+    queryFn: () => api.coverageGridCells(province, cellM),
+    enabled: !!province && enabled,
     staleTime: 5 * 60_000,
   });
 }
 
-export function useCoverageRecommendations(city: string, limit = 10) {
+export function useCoverageRecommendations(province: string, limit = 10) {
   return useQuery({
-    queryKey: queryKeys.coverageRecommendations(city, limit),
-    queryFn: () => api.coverageRecommendations(city, limit),
-    enabled: !!city,
+    queryKey: queryKeys.coverageRecommendations(province, limit),
+    queryFn: () => api.coverageRecommendations(province, limit),
+    enabled: !!province,
     staleTime: 5 * 60_000,
   });
 }
 
-export function useCompetitors(city: string) {
+export function useCompetitors(province: string) {
   return useQuery({
-    queryKey: queryKeys.competitors(city),
-    queryFn: () => api.competitors(city),
-    enabled: !!city,
+    queryKey: queryKeys.competitors(province),
+    queryFn: () => api.competitors(province),
+    enabled: !!province,
     staleTime: 5 * 60_000,
   });
 }

@@ -10,13 +10,13 @@ import (
 
 const terrainCacheVersion = "v1"
 
-func (s *Service) exclusionAreas(ctx context.Context, city string, bb domain.BoundingBox) []domain.ExclusionArea {
+func (s *Service) exclusionAreas(ctx context.Context, province string, bb domain.BoundingBox) []domain.ExclusionArea {
 	if s.Terrain == nil || bb.IsZero() {
 		return nil
 	}
 
 	cacheKey := fmt.Sprintf("coverage:terrain:%s:%s:%.5f:%.5f:%.5f:%.5f",
-		terrainCacheVersion, city, bb.MinLat, bb.MinLng, bb.MaxLat, bb.MaxLng)
+		terrainCacheVersion, province, bb.MinLat, bb.MinLng, bb.MaxLat, bb.MaxLng)
 	var cached []domain.ExclusionArea
 	if s.Cache != nil {
 		if hit, _ := s.Cache.Get(ctx, cacheKey, &cached); hit {

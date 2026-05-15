@@ -1,13 +1,13 @@
 
 
 import type {
-  CityInfo,
   CompetitorPoint,
   CoverageRecommendations,
   CoverageSummary,
   GridCell,
   LockerDetail,
   LockerSummary,
+  ProvinceInfo,
 } from './contracts';
 import { mockApi } from './mocks';
 
@@ -37,40 +37,40 @@ function qs(params: Record<string, string | number | undefined>): string {
 export const api = {
   isMock: USE_MOCK,
 
-  cities(): Promise<CityInfo[]> {
-    return USE_MOCK ? mockApi.cities() : request('/api/v1/cities?min_points=20');
+  provinces(): Promise<ProvinceInfo[]> {
+    return USE_MOCK ? mockApi.provinces() : request('/api/v1/provinces');
   },
 
-  lockers(status?: 'Operating' | 'Disabled', city?: string): Promise<LockerSummary[]> {
+  lockers(status?: 'Operating' | 'Disabled', province?: string): Promise<LockerSummary[]> {
     if (USE_MOCK) return mockApi.lockers(status);
-    return request(`/api/v1/lockers${qs({ status, city })}`);
+    return request(`/api/v1/lockers${qs({ status, province })}`);
   },
 
   locker(id: number): Promise<LockerDetail> {
     return USE_MOCK ? mockApi.locker(id) : request(`/api/v1/lockers/${id}`);
   },
 
-  coverageSummary(city: string, cellM = 400): Promise<CoverageSummary> {
+  coverageSummary(province: string, cellM = 800): Promise<CoverageSummary> {
     return USE_MOCK
       ? mockApi.coverageGrid(cellM).then((r) => r.summary)
-      : request(`/api/v1/coverage/summary${qs({ city, cell_m: cellM })}`);
+      : request(`/api/v1/coverage/summary${qs({ province, cell_m: cellM })}`);
   },
 
-  coverageGridCells(city: string, cellM = 400): Promise<GridCell[]> {
+  coverageGridCells(province: string, cellM = 800): Promise<GridCell[]> {
     return USE_MOCK
       ? mockApi.coverageGrid(cellM).then((r) => r.cells)
-      : request(`/api/v1/coverage/grid-cells${qs({ city, cell_m: cellM })}`);
+      : request(`/api/v1/coverage/grid-cells${qs({ province, cell_m: cellM })}`);
   },
 
-  coverageRecommendations(city: string, limit = 10): Promise<CoverageRecommendations> {
+  coverageRecommendations(province: string, limit = 10): Promise<CoverageRecommendations> {
     return USE_MOCK
-      ? mockApi.coverageRecommendations(400, limit)
-      : request(`/api/v1/coverage/recommendations${qs({ city, limit })}`);
+      ? mockApi.coverageRecommendations(800, limit)
+      : request(`/api/v1/coverage/recommendations${qs({ province, limit })}`);
   },
 
-  competitors(city: string): Promise<CompetitorPoint[]> {
+  competitors(province: string): Promise<CompetitorPoint[]> {
     return USE_MOCK
       ? mockApi.competitors()
-      : request(`/api/v1/coverage/competitors${qs({ city })}`);
+      : request(`/api/v1/coverage/competitors${qs({ province })}`);
   },
 };

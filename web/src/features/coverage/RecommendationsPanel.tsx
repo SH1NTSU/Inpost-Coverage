@@ -1,11 +1,17 @@
-import { Link } from 'react-router-dom';
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 
 import type {
   CoverageRecommendations,
   GapSuggestion,
   UpgradeCandidate,
-} from '../../api/contracts';
-import { TIER_COLOR, TIER_LABEL, formatMeters, networkLabel } from '../../lib/tier';
+} from "../../api/contracts";
+import {
+  TIER_COLOR,
+  TIER_LABEL,
+  formatMeters,
+  networkLabel,
+} from "../../lib/tier";
 
 interface Props {
   data: CoverageRecommendations | undefined;
@@ -17,20 +23,79 @@ function anchorLabel(a: { brand: string; name: string; poi_type: string }) {
   return a.brand || a.name || a.poi_type;
 }
 
-export function RecommendationsPanel({ data, isLoading, onPickSuggestion }: Props) {
+const OPEN_AREA_LABEL = "Open underserved area";
+const OPEN_AREA_TYPE = "open area";
+
+type RecFilter = "all" | "anchor" | "open";
+
+const FILTER_OPTIONS: { value: RecFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "anchor", label: "Anchored" },
+  { value: "open", label: "Open area" },
+];
+
+export function RecommendationsPanel({
+  data,
+  isLoading,
+  onPickSuggestion,
+}: Props) {
+  const [filter, setFilter] = useState<RecFilter>("all");
+
+  const suggestions = data?.new_points ?? [];
+  const filteredSuggestions = useMemo(() => {
+    if (filter === "anchor") return suggestions.filter((s) => s.anchor);
+    if (filter === "open") return suggestions.filter((s) => !s.anchor);
+    return suggestions;
+  }, [suggestions, filter]);
+
+  const anchoredCount = suggestions.filter((s) => s.anchor).length;
+  const openCount = suggestions.length - anchoredCount;
+
   return (
     <aside className="recs">
       <section className="recs__group">
-        <h2>🆕 Suggested anchor locations</h2>
+        <h2>Suggested anchor locations</h2>
         <p className="recs__subtitle muted">
           Real places far from any InPost locker — attach a Paczkomat here.
         </p>
+        <div className="recs__filter" role="tablist" aria-label="Filter suggestions">
+          {FILTER_OPTIONS.map((opt) => {
+            const count =
+              opt.value === "anchor"
+                ? anchoredCount
+                : opt.value === "open"
+                ? openCount
+                : suggestions.length;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                role="tab"
+                aria-selected={filter === opt.value}
+                className={`recs__filter-chip${
+                  filter === opt.value ? " recs__filter-chip--active" : ""
+                }`}
+                onClick={() => setFilter(opt.value)}
+                disabled={suggestions.length === 0}
+              >
+                {opt.label}
+                <span className="recs__filter-count">{count}</span>
+              </button>
+            );
+          })}
+        </div>
         {isLoading && <p className="muted">Calculating…</p>}
-        {!isLoading && (!data || data.new_points.length === 0) && (
-          <p className="muted">No isolated anchor POIs in this view.</p>
+        {!isLoading && filteredSuggestions.length === 0 && (
+          <p className="muted">
+            {suggestions.length === 0
+              ? "No isolated anchor POIs in this view."
+              : `No ${
+                  filter === "anchor" ? "anchored" : "open-area"
+                } suggestions in this view.`}
+          </p>
         )}
-        <ol className="recs__list">
-          {(data?.new_points ?? []).map((s, i) => (
+        <ol className="recs__list recs__list--scroll">
+          {filteredSuggestions.map((s, i) => (
             <li key={i} className="rec-card">
               <button
                 type="button"
@@ -45,8 +110,12 @@ export function RecommendationsPanel({ data, isLoading, onPickSuggestion }: Prop
                   #{i + 1} {TIER_LABEL[s.tier]}
                 </span>
                 <span className="rec-card__anchor-headline">
-                  <span className="anchor-type">{s.anchor.poi_type}</span>
-                  <strong>{anchorLabel(s.anchor)}</strong>
+                  <span className="anchor-type">
+                    {s.anchor ? s.anchor.poi_type : OPEN_AREA_TYPE}
+                  </span>
+                  <strong>
+                    {s.anchor ? anchorLabel(s.anchor) : OPEN_AREA_LABEL}
+                  </strong>
                 </span>
               </button>
               <p className="rec-card__reason">{s.reason}</p>
@@ -58,20 +127,26 @@ export function RecommendationsPanel({ data, isLoading, onPickSuggestion }: Prop
                 <div>
                   <dt>Nearest competitor</dt>
                   <dd>
-                    {formatMeters(s.nearest_competitor_m)}{' '}
-                    <span className="muted">({networkLabel(s.nearest_competitor_network)})</span>
+                    {formatMeters(s.nearest_competitor_m)}{" "}
+                    <span className="muted">
+                      ({networkLabel(s.nearest_competitor_network)})
+                    </span>
                   </dd>
                 </div>
               </dl>
               {s.nearby_anchors.length > 0 && (
                 <div className="rec-card__anchors">
-                  <span className="rec-card__anchors-title">Other anchors within 250 m</span>
+                  <span className="rec-card__anchors-title">
+                    Other anchors within 250 m
+                  </span>
                   <ul>
                     {s.nearby_anchors.slice(0, 4).map((a, k) => (
                       <li key={k}>
                         <span className="anchor-type">{a.poi_type}</span>
                         <span className="anchor-name">{anchorLabel(a)}</span>
-                        <span className="anchor-dist">{formatMeters(a.distance_m)}</span>
+                        <span className="anchor-dist">
+                          {formatMeters(a.distance_m)}
+                        </span>
                       </li>
                     ))}
                   </ul>
@@ -83,7 +158,7 @@ export function RecommendationsPanel({ data, isLoading, onPickSuggestion }: Prop
       </section>
 
       <section className="recs__group">
-        <h2>🔁 Lockers worth upgrading</h2>
+        <h2>Lockers worth upgrading</h2>
         <p className="recs__subtitle muted">
           Old-generation units, ranked by surrounding competitor pressure.
         </p>
@@ -102,11 +177,13 @@ export function RecommendationsPanel({ data, isLoading, onPickSuggestion }: Prop
                   score {(u.score * 100).toFixed(0)}
                 </span>
               </div>
-              <p className="muted">{u.locker.street}, {u.locker.city}</p>
+              <p className="muted">
+                {u.locker.street}, {u.locker.city}
+              </p>
               <dl className="rec-card__metrics">
                 <div>
                   <dt>Generation</dt>
-                  <dd>{u.is_next ? 'new' : 'old'}</dd>
+                  <dd>{u.is_next ? "new" : "old"}</dd>
                 </div>
                 <div>
                   <dt>Competitors ≤ 400m</dt>
@@ -114,7 +191,7 @@ export function RecommendationsPanel({ data, isLoading, onPickSuggestion }: Prop
                 </div>
                 <div>
                   <dt>24/7</dt>
-                  <dd>{u.locker.location_247 ? 'yes' : 'no'}</dd>
+                  <dd>{u.locker.location_247 ? "yes" : "no"}</dd>
                 </div>
               </dl>
               {u.reasons.length > 0 && (

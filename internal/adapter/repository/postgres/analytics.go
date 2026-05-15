@@ -55,16 +55,16 @@ LEFT JOIN LATERAL (
     LIMIT 1
 ) latest ON TRUE
 WHERE ($1::TEXT IS NULL OR COALESCE(latest.status, p.status) = $1)
-  AND ($2::TEXT = '' OR p.city = $2)
+  AND ($2::TEXT = '' OR p.province = $2)
 ORDER BY p.id;
 `
 
-func (r *AnalyticsRepo) ListLockers(ctx context.Context, statusFilter *domain.PointStatus, city string) ([]domain.LockerSummary, error) {
+func (r *AnalyticsRepo) ListLockers(ctx context.Context, statusFilter *domain.PointStatus, province string) ([]domain.LockerSummary, error) {
 	var arg any
 	if statusFilter != nil {
 		arg = string(*statusFilter)
 	}
-	rows, err := r.DB.Query(ctx, listLockersSQL, arg, city)
+	rows, err := r.DB.Query(ctx, listLockersSQL, arg, province)
 	if err != nil {
 		return nil, err
 	}

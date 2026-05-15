@@ -1,0 +1,16 @@
+# Build: docker build -t paczkomat-api -f Dockerfile.api .
+# Run:   docker run --rm -p 8090:8090 --env-file .env paczkomat-api
+FROM golang:1.24-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
+
+FROM gcr.io/distroless/static-debian12
+WORKDIR /
+ENV HTTP_ADDR=:8090
+EXPOSE 8090
+COPY --from=build /out/api /api
+USER nonroot:nonroot
+ENTRYPOINT ["/api"]

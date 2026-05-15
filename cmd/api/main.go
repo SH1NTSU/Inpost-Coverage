@@ -71,8 +71,8 @@ func main() {
 	runWarm := func(ctx context.Context, phase string) {
 		stats, err := cov.WarmDefaults(
 			ctx,
-			cfg.Coverage.MinCityPoints,
-			cfg.Coverage.PrecomputeCityLimit,
+			cfg.Coverage.MinProvincePoints,
+			cfg.Coverage.PrecomputeProvinceLimit,
 			cfg.Coverage.DefaultCellMeters,
 			cfg.Coverage.DefaultRecommendationsTop,
 		)
@@ -80,7 +80,7 @@ func main() {
 			log.Error("coverage warm", "phase", phase, "err", err)
 			return
 		}
-		log.Info("coverage warm done", "phase", phase, "cities", stats.Cities)
+		log.Info("coverage warm done", "phase", phase, "provinces", stats.Provinces)
 	}
 	go runWarm(ctx, "startup")
 	if cfg.Coverage.PrecomputeInterval > 0 {

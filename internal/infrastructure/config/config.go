@@ -45,10 +45,13 @@ type Scraper struct {
 
 type Coverage struct {
 	PrecomputeInterval        time.Duration `env:"COVERAGE_PRECOMPUTE_INTERVAL" envDefault:"30m"`
-	PrecomputeCityLimit       int           `env:"COVERAGE_PRECOMPUTE_CITY_LIMIT" envDefault:"25"`
-	DefaultCellMeters         int           `env:"COVERAGE_DEFAULT_CELL_METERS" envDefault:"400"`
-	DefaultRecommendationsTop int           `env:"COVERAGE_DEFAULT_RECOMMENDATIONS_TOP" envDefault:"5"`
-	MinCityPoints             int           `env:"COVERAGE_MIN_CITY_POINTS" envDefault:"20"`
+	PrecomputeProvinceLimit   int           `env:"COVERAGE_PRECOMPUTE_PROVINCE_LIMIT" envDefault:"16"`
+	// Must match the values the frontend actually requests — the cache key
+	// includes cellMeters and recommendation limit, so a mismatch means the
+	// warm populates rows that user requests never hit.
+	DefaultCellMeters         int `env:"COVERAGE_DEFAULT_CELL_METERS" envDefault:"1500"`
+	DefaultRecommendationsTop int `env:"COVERAGE_DEFAULT_RECOMMENDATIONS_TOP" envDefault:"50"`
+	MinProvincePoints         int           `env:"COVERAGE_MIN_PROVINCE_POINTS" envDefault:"50"`
 }
 
 type External struct {

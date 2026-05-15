@@ -59,7 +59,7 @@ func (s *Server) Router() http.Handler {
 		r.Get("/coverage/recommendations", s.handleCoverageRecommendations)
 		r.Get("/coverage/competitors", s.handleCoverageCompetitors)
 
-		r.Get("/cities", s.handleCities)
+		r.Get("/provinces", s.handleProvinces)
 	})
 
 	return r

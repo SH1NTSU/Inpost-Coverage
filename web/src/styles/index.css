@@ -148,13 +148,36 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
 }
 .map-loader {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  z-index: 500;
-  background: rgba(17, 24, 39, 0.85);
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
-  font-size: 0.8rem;
+  inset: 0;
+  z-index: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: rgba(8, 12, 20, 0.75);
+  backdrop-filter: blur(6px);
+  color: var(--fg);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+.map-loader__spinner {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.15);
+  border-top-color: var(--accent, #fbbf24);
+  animation: map-loader-spin 0.85s linear infinite;
+}
+.map-loader__label {
+  opacity: 0.85;
+}
+.map-loader__sub {
+  font-size: 0.78rem;
+  opacity: 0.55;
+}
+@keyframes map-loader-spin {
+  to { transform: rotate(360deg); }
 }
 .legend {
   display: flex;
@@ -570,19 +593,19 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   flex-wrap: wrap;
 }
 
-.city-selector {
+.province-selector {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
   min-width: 240px;
 }
-.city-selector__label {
+.province-selector__label {
   font-size: 0.7rem;
   color: var(--fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
-.city-selector__select {
+.province-selector__select {
   appearance: none;
   background: var(--bg-elev);
   color: var(--fg);
@@ -597,7 +620,7 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   background-size: 5px 5px;
   background-repeat: no-repeat;
 }
-.city-selector__select:focus {
+.province-selector__select:focus {
   outline: none;
   border-color: var(--accent);
 }
@@ -658,10 +681,38 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   user-select: none;
 }
 .layers__chip input { display: none; }
+.layers__select {
+  padding: 0.3rem 0.6rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.8rem;
+  color: inherit;
+  cursor: pointer;
+}
 .layers__swatch {
   width: 10px;
   height: 10px;
   border-radius: 2px;
+}
+
+.layers__group--points .layers__chip--point:has(input:checked) .layers__swatch--inpost {
+  background: #3b82f6;
+}
+.layers__group--points .layers__chip--point:has(input:checked) .layers__swatch--competitors {
+  background: #9ca3af;
+}
+.layers__group--points .layers__chip--point:has(input:checked) .layers__swatch--suggestions {
+  background: #fbbf24;
+}
+
+.layers__group--points .layers__chip--point:has(input:not(:checked)) {
+  background: #e5e7eb;
+  border-color: #cbd5e1;
+  color: #000;
+}
+.layers__group--points .layers__chip--point:has(input:not(:checked)) .layers__swatch {
+  background: #000 !important;
 }
 
 .recs {
@@ -683,6 +734,26 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+/* Show ~5 cards then scroll. We let the outer .recs panel keep its
+   own scroll bar for the whole sidebar (upgrades section etc.), but the
+   new-points list itself caps its height so the filter chips stay visible
+   at the top and the rest of the list is reachable with a flick. */
+.recs__list--scroll {
+  max-height: 720px;
+  overflow-y: auto;
+  padding-right: 0.3rem;
+  scrollbar-gutter: stable;
+}
+.recs__list--scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.recs__list--scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+.recs__list--scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--fg-muted);
 }
 .rec-card {
   background: var(--bg-elev);
@@ -792,6 +863,47 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
 .recs__subtitle {
   font-size: 0.78rem;
   margin: 0 0 0.6rem;
+}
+.recs__filter {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0 0 0.7rem;
+  flex-wrap: wrap;
+}
+.recs__filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: inherit;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.recs__filter-chip:hover:not(:disabled) {
+  border-color: var(--accent, #fbbf24);
+}
+.recs__filter-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.recs__filter-chip--active {
+  background: var(--accent, #fbbf24);
+  border-color: var(--accent, #fbbf24);
+  color: #0b0f17;
+  font-weight: 600;
+}
+.recs__filter-count {
+  font-size: 0.7rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.recs__filter-chip--active .recs__filter-count {
+  opacity: 0.85;
+  color: rgba(11, 15, 23, 0.75);
 }
 .rec-card__metrics {
   display: grid;

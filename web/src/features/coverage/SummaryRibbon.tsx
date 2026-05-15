@@ -24,7 +24,7 @@ export function SummaryRibbon({ summary }: { summary: CoverageSummary | undefine
         label="Greenfield cells"
         value={summary.greenfield_cells.toLocaleString()}
         tone="bad"
-        hint="no operator nearby"
+        hint="no operator mapped nearby"
       />
       <StatPill
         label="Competitive cells"

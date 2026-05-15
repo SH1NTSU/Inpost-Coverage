@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"runtime"
+	"sort"
 	"sync"
 
 	"github.com/marcelbudziszewski/paczkomat-predictor/internal/domain"
@@ -18,9 +19,9 @@ const (
 
 	habitableRadiusM = 700
 
-	cacheKeyVersion = "v3"
+	cacheKeyVersion = "v16-competitor-rescrape"
 
-	recommendationsCacheVersion = "v1"
+	recommendationsCacheVersion = "v18-competitor-rescrape"
 )
 
 const (
@@ -39,8 +40,18 @@ type Service struct {
 	Cache       cache.Cache
 }
 
-func (s *Service) resolveBBox(ctx context.Context, city string) (domain.BoundingBox, error) {
-	bb, err := s.Points.BoundingBox(ctx, city)
+// Approximate Polish national bounds, used as a hard cap so a single bad
+// row in the points table (a locker with mangled lat/lng) can't drag a
+// province's bbox into Belarus or the Czech Republic.
+const (
+	polandMinLat = 49.00
+	polandMaxLat = 54.85
+	polandMinLng = 14.10
+	polandMaxLng = 24.15
+)
+
+func (s *Service) resolveBBox(ctx context.Context, province string) (domain.BoundingBox, error) {
+	bb, err := s.Points.BoundingBox(ctx, province)
 	if err != nil {
 		return bb, err
 	}
@@ -51,23 +62,35 @@ func (s *Service) resolveBBox(ctx context.Context, city string) (domain.Bounding
 	bb.MinLng -= 0.015
 	bb.MaxLat += 0.01
 	bb.MaxLng += 0.015
+	if bb.MinLat < polandMinLat {
+		bb.MinLat = polandMinLat
+	}
+	if bb.MaxLat > polandMaxLat {
+		bb.MaxLat = polandMaxLat
+	}
+	if bb.MinLng < polandMinLng {
+		bb.MinLng = polandMinLng
+	}
+	if bb.MaxLng > polandMaxLng {
+		bb.MaxLng = polandMaxLng
+	}
 	return bb, nil
 }
 
-func (s *Service) BuildGrid(ctx context.Context, city string, cellMeters int) ([]domain.GridCell, domain.CoverageSummary, error) {
-	snap, err := s.Grid(ctx, city, cellMeters)
+func (s *Service) BuildGrid(ctx context.Context, province string, cellMeters int) ([]domain.GridCell, domain.CoverageSummary, error) {
+	snap, err := s.Grid(ctx, province, cellMeters)
 	if err != nil {
 		return nil, domain.CoverageSummary{}, err
 	}
 	return snap.Cells, snap.Summary, nil
 }
 
-func (s *Service) Grid(ctx context.Context, city string, cellMeters int) (domain.CoverageGridSnapshot, error) {
+func (s *Service) Grid(ctx context.Context, province string, cellMeters int) (domain.CoverageGridSnapshot, error) {
 	if cellMeters <= 0 {
 		cellMeters = 300
 	}
 
-	cacheKey := fmt.Sprintf("coverage:grid:%s:%s:%d", cacheKeyVersion, city, cellMeters)
+	cacheKey := fmt.Sprintf("coverage:grid:%s:%s:%d", cacheKeyVersion, province, cellMeters)
 	var cached domain.CoverageGridSnapshot
 	if s.Cache != nil {
 		if hit, _ := s.Cache.Get(ctx, cacheKey, &cached); hit {
@@ -75,7 +98,7 @@ func (s *Service) Grid(ctx context.Context, city string, cellMeters int) (domain
 		}
 	}
 	if s.Store != nil {
-		if snap, err := s.Store.LoadGrid(ctx, city, cellMeters, cacheKeyVersion); err == nil && snap != nil {
+		if snap, err := s.Store.LoadGrid(ctx, province, cellMeters, cacheKeyVersion); err == nil && snap != nil {
 			if s.Cache != nil {
 				_ = s.Cache.Set(ctx, cacheKey, *snap)
 			}
@@ -83,11 +106,11 @@ func (s *Service) Grid(ctx context.Context, city string, cellMeters int) (domain
 		}
 	}
 
-	bb, err := s.resolveBBox(ctx, city)
+	bb, err := s.resolveBBox(ctx, province)
 	if err != nil {
 		return domain.CoverageGridSnapshot{}, err
 	}
-	inp, err := s.Points.AllForCoverage(ctx, city)
+	inp, err := s.Points.AllForCoverage(ctx, bb)
 	if err != nil {
 		return domain.CoverageGridSnapshot{}, err
 	}
@@ -100,11 +123,35 @@ func (s *Service) Grid(ctx context.Context, city string, cellMeters int) (domain
 	if err != nil {
 		return domain.CoverageGridSnapshot{}, err
 	}
-	exclusions := s.exclusionAreas(ctx, city, bb)
+	exclusions := s.exclusionAreas(ctx, province, bb)
 
 	inpIdx := indexFromPoints(inp)
+	// Second InPost index containing only same-province lockers. Used as a
+	// "must be within reach of the province" gate so cells over the Czech /
+	// Slovak / Belarusian / German side of the bbox get dropped even when
+	// Voronoi-by-locker can't distinguish them (a Polish locker 4 km from the
+	// border is still the closest thing on both sides of that border).
+	provLockers := make([]domain.CoveragePoint, 0, len(inp))
+	for _, p := range inp {
+		if province == "" || p.Province == province {
+			provLockers = append(provLockers, p)
+		}
+	}
+	inpProvinceIdx := indexFromPoints(provLockers)
 	cpIdx := indexFromCompetitors(comps)
-	anchorIdx := indexFromAnchors(anchors)
+	// Split anchors into commercial vs settlement so the two get different
+	// habitability radii — see recommendations.go for the rationale.
+	commercial := make([]domain.AnchorPOI, 0, len(anchors))
+	settlement := make([]domain.AnchorPOI, 0, len(anchors))
+	for _, a := range anchors {
+		if isSettlementType(a.Type) {
+			settlement = append(settlement, a)
+			continue
+		}
+		commercial = append(commercial, a)
+	}
+	commercialIdx := indexFromAnchors(commercial)
+	settlementIdx := indexFromAnchors(settlement)
 
 	stepLat := float64(cellMeters) / metersPerDegLat
 	stepLng := float64(cellMeters) / metersPerDegLng(50.06)
@@ -153,15 +200,40 @@ func (s *Service) Grid(ctx context.Context, city string, cellMeters int) (domain
 
 					inP, inDist, inOk := inpIdx.Nearest(centerLat, centerLng)
 					cpP, cpDist, cpOk := cpIdx.Nearest(centerLat, centerLng)
+					// Voronoi-on-lockers province containment: a cell whose
+					// nearest InPost is in a different province belongs to
+					// that province's catchment — skip it so the choropleth
+					// doesn't bleed across province borders.
+					if province != "" && inOk && inP.Tag != "" && inP.Tag != province {
+						continue
+					}
+					// Foreign-territory gate: real Polish cells almost always
+					// have a same-province locker within ~6 km. Cells beyond
+					// that are either in another country (Czech / Belarus) or
+					// in totally unsettled wilderness — neither is meaningful.
+					if province != "" {
+						_, provDist, provOk := inpProvinceIdx.Nearest(centerLat, centerLng)
+						if !provOk || provDist > 6000 {
+							continue
+						}
+					}
 					if !inOk {
-						inDist = 1e12
+						inDist = noNearbySentinel
 					}
 					if !cpOk {
-						cpDist = 1e12
+						cpDist = noNearbySentinel
 					}
 
-					hasNetwork := inDist <= habitableRadiusM || cpDist <= habitableRadiusM
-					if !hasNetwork && !anchorIdx.HasWithin(centerLat, centerLng, habitableRadiusM) {
+					// Habitability mirror of recommendations.go: commercial /
+					// competitor within 1.5 km, OR a real settlement node
+					// (town 1.5 km, village 0.5 km, hamlets ignored — they're
+					// 5-house clusters and would paint farmland otherwise).
+					habitable := inDist <= habitableRadiusM ||
+						cpDist <= habitableRadiusM ||
+						commercialIdx.HasWithin(centerLat, centerLng, 1500) ||
+						cpIdx.HasWithin(centerLat, centerLng, 1500) ||
+						settlementHabitable(centerLat, centerLng, settlementIdx)
+					if !habitable {
 						acc.total++
 						acc.uninhabited++
 						continue
@@ -211,15 +283,45 @@ func (s *Service) Grid(ctx context.Context, city string, cellMeters int) (domain
 		InpostLockers:     len(inp),
 		CompetitorLockers: len(comps),
 	}
-	var cells []domain.GridCell
+	// Collect emitted cells split by tier so we can cap how many of each go
+	// over the wire. Stats above (acc.* counters) are unaffected, so the
+	// "Underserved area" stat still reflects the *true* count.
+	var greenCells, compCells, otherCells []domain.GridCell
 	for _, acc := range rowResults {
 		summary.TotalCells += acc.total
 		summary.GreenfieldCells += acc.green
 		summary.CompetitiveCells += acc.comp
 		summary.InpostOnlyCells += acc.inpOnly
 		summary.SaturatedCells += acc.sat
-		cells = append(cells, acc.cells...)
+		for _, c := range acc.cells {
+			switch c.Tier {
+			case domain.TierGreenfield:
+				greenCells = append(greenCells, c)
+			case domain.TierCompetitive:
+				compCells = append(compCells, c)
+			default:
+				otherCells = append(otherCells, c)
+			}
+		}
 	}
+	// Sort each tier by inDist descending so the worst gaps are kept when we
+	// trim. The choropleth still looks right (densest red where the gaps
+	// really are) and the browser doesn't choke on 20k+ rectangles.
+	const maxGreenfieldEmit = 1500
+	const maxCompetitiveEmit = 500
+	sort.Slice(greenCells, func(i, j int) bool { return greenCells[i].NearestInpostM > greenCells[j].NearestInpostM })
+	sort.Slice(compCells, func(i, j int) bool { return compCells[i].NearestInpostM > compCells[j].NearestInpostM })
+	if len(greenCells) > maxGreenfieldEmit {
+		greenCells = greenCells[:maxGreenfieldEmit]
+	}
+	if len(compCells) > maxCompetitiveEmit {
+		compCells = compCells[:maxCompetitiveEmit]
+	}
+	cells := make([]domain.GridCell, 0, len(greenCells)+len(compCells)+len(otherCells))
+	cells = append(cells, greenCells...)
+	cells = append(cells, compCells...)
+	cells = append(cells, otherCells...)
+
 	cellAreaKm2 := float64(cellMeters*cellMeters) / 1_000_000.0
 	underservedCells := summary.GreenfieldCells + summary.CompetitiveCells
 	summary.UnderservedKm2 = float64(underservedCells) * cellAreaKm2
@@ -229,7 +331,7 @@ func (s *Service) Grid(ctx context.Context, city string, cellMeters int) (domain
 		Cells:   cells,
 	}
 	if s.Store != nil {
-		_ = s.Store.SaveGrid(ctx, city, cellMeters, cacheKeyVersion, snap)
+		_ = s.Store.SaveGrid(ctx, province, cellMeters, cacheKeyVersion, snap)
 	}
 	if s.Cache != nil {
 		_ = s.Cache.Set(ctx, cacheKey, snap)
@@ -255,7 +357,7 @@ func classify(inDist, cpDist float64) domain.CoverageTier {
 func indexFromPoints(pts []domain.CoveragePoint) *spatial.Index {
 	out := make([]spatial.Point, len(pts))
 	for i, p := range pts {
-		out[i] = spatial.Point{Lat: p.Latitude, Lng: p.Longitude, ID: p.ID}
+		out[i] = spatial.Point{Lat: p.Latitude, Lng: p.Longitude, ID: p.ID, Tag: p.Province}
 	}
 	return spatial.New(out, 500)
 }

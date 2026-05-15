@@ -40,11 +40,11 @@ function detailFor(l) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export const mockApi = {
-    async cities() {
+    async provinces() {
         await sleep(50);
         return [
-            { name: 'Kraków', province: 'małopolskie', point_count: 764, min_lat: 49.97, min_lng: 19.79, max_lat: 50.13, max_lng: 20.1, center_lat: 50.06, center_lng: 19.94 },
-            { name: 'Warszawa', province: 'mazowieckie', point_count: 195, min_lat: 52.1, min_lng: 20.85, max_lat: 52.37, max_lng: 21.27, center_lat: 52.23, center_lng: 21.0 },
+            { name: 'małopolskie', point_count: 1240, min_lat: 49.4, min_lng: 19.1, max_lat: 50.5, max_lng: 21.4, center_lat: 49.95, center_lng: 20.25 },
+            { name: 'mazowieckie', point_count: 1810, min_lat: 51.0, min_lng: 19.6, max_lat: 53.4, max_lng: 23.1, center_lat: 52.2, center_lng: 21.35 },
         ];
     },
     async lockers(status) {

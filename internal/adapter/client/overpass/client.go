@@ -24,24 +24,32 @@ func New(baseURL string) *Client {
 	}
 	return &Client{
 		BaseURL:   baseURL,
-		HTTP:      &http.Client{Timeout: 60 * time.Second},
+		HTTP:      &http.Client{Timeout: 3 * time.Minute},
 		UserAgent: "paczkomat-reliability/0.1 (educational; github.com/marcelbudziszewski/paczkomat-predictor)",
 	}
 }
 
 func (c *Client) FetchParcelLockers(ctx context.Context, b domain.BoundingBox) ([]domain.CompetitorPoint, error) {
 
-	query := fmt.Sprintf(`[out:json][timeout:60];
+	bbox := fmt.Sprintf("(%f,%f,%f,%f)", b.MinLat, b.MinLng, b.MaxLat, b.MaxLng)
+	// Most Polish competitor pickup points in OSM are *not* tagged
+	// `amenity=parcel_locker`. Allegro One boxes, DHL points, Orlen
+	// Paczka etc. are usually tagged on a generic node or a shop with a
+	// `brand=` / `operator=` value. This query takes the union of the
+	// canonical amenity tags AND every node carrying a known competitor
+	// brand or operator, regardless of amenity type. The classifier
+	// downstream still dedups by `inpost_id` and skips InPost rows.
+	query := fmt.Sprintf(`[out:json][timeout:180];
 (
-  node["amenity"="parcel_locker"](%f,%f,%f,%f);
-  node["amenity"="vending_machine"]["vending"="parcel_pickup"](%f,%f,%f,%f);
-  node["amenity"="post_office"](%f,%f,%f,%f);
+  node["amenity"="parcel_locker"]%s;
+  node["amenity"="parcel_pickup"]%s;
+  node["amenity"="vending_machine"]["vending"="parcel_pickup"]%s;
+  node["amenity"="post_office"]%s;
+  node["brand"~"Allegro One|AllegroBox|One Box|OneBox|DHL|DPD|GLS|Orlen Paczka|Pocztex|Poczta Polska|UPS|FedEx",i]%s;
+  node["operator"~"Allegro|DHL|DPD|GLS|Orlen Paczka|Pocztex|Poczta Polska|UPS|FedEx",i]%s;
+  node["shop"]["service:parcel_pickup"="yes"]%s;
 );
-out body;`,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-	)
+out body;`, bbox, bbox, bbox, bbox, bbox, bbox, bbox)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL,
 		strings.NewReader("data="+query))
@@ -86,28 +94,25 @@ out body;`,
 
 func (c *Client) FetchAnchorPOIs(ctx context.Context, b domain.BoundingBox) ([]domain.AnchorPOI, error) {
 
-	query := fmt.Sprintf(`[out:json][timeout:60];
+	bbox := fmt.Sprintf("(%f,%f,%f,%f)", b.MinLat, b.MinLng, b.MaxLat, b.MaxLng)
+	query := fmt.Sprintf(`[out:json][timeout:180];
 (
-  node["shop"="convenience"](%f,%f,%f,%f);
-  node["shop"="supermarket"](%f,%f,%f,%f);
-  node["shop"="mall"](%f,%f,%f,%f);
-  node["amenity"="fuel"](%f,%f,%f,%f);
-  node["amenity"="marketplace"](%f,%f,%f,%f);
-  node["amenity"="university"](%f,%f,%f,%f);
-  node["amenity"="college"](%f,%f,%f,%f);
-  node["public_transport"="station"](%f,%f,%f,%f);
-  node["railway"="station"](%f,%f,%f,%f);
+  node["shop"="convenience"]%s;
+  node["shop"="supermarket"]%s;
+  node["shop"="mall"]%s;
+  node["amenity"="fuel"]%s;
+  node["amenity"="marketplace"]%s;
+  node["amenity"="university"]%s;
+  node["amenity"="college"]%s;
+  node["amenity"="post_office"]%s;
+  node["amenity"="school"]%s;
+  node["amenity"="pharmacy"]%s;
+  node["public_transport"="station"]%s;
+  node["railway"="station"]%s;
+  node["place"~"^(city|town|village|hamlet|suburb)$"]%s;
 );
 out body;`,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
-		b.MinLat, b.MinLng, b.MaxLat, b.MaxLng,
+		bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox, bbox,
 	)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", c.BaseURL,
@@ -165,8 +170,20 @@ func classifyAnchorType(t map[string]string) string {
 		return "marketplace"
 	case t["amenity"] == "university", t["amenity"] == "college":
 		return "university"
+	case t["amenity"] == "post_office":
+		return "post_office"
+	case t["amenity"] == "school":
+		return "school"
+	case t["amenity"] == "pharmacy":
+		return "pharmacy"
 	case t["public_transport"] == "station", t["railway"] == "station":
 		return "transit"
+	case t["place"] == "city", t["place"] == "town":
+		return "town"
+	case t["place"] == "village":
+		return "village"
+	case t["place"] == "hamlet", t["place"] == "suburb":
+		return "hamlet"
 	}
 	return ""
 }

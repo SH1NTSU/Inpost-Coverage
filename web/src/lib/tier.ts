@@ -41,7 +41,12 @@ export function networkLabel(n: string | undefined): string {
   return NETWORK_LABEL[n] ?? n;
 }
 
+// Backend uses 1e12 as a "no neighbour found" sentinel (see recommendations.go).
+// Anything at or above this magnitude is not a real distance.
+const NO_NEAREST_THRESHOLD_M = 1e11;
+
 export function formatMeters(m: number): string {
+  if (!Number.isFinite(m) || m >= NO_NEAREST_THRESHOLD_M) return '—';
   if (m < 1000) return `${Math.round(m)} m`;
   return `${(m / 1000).toFixed(1)} km`;
 }

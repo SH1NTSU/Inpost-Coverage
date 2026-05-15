@@ -18,6 +18,17 @@ import type {
 } from '../../api/contracts';
 import { TIER_COLOR, networkLabel, formatMeters } from '../../lib/tier';
 
+type MapFocus =
+  | { kind: 'point'; lat: number; lng: number; zoom: number; tick: number }
+  | {
+      kind: 'bounds';
+      minLat: number;
+      minLng: number;
+      maxLat: number;
+      maxLng: number;
+      tick: number;
+    };
+
 interface Props {
   cells: GridCell[];
   cellMeters: number;
@@ -28,18 +39,37 @@ interface Props {
   showCompetitors: boolean;
   showSuggestions: boolean;
   visibleTiers: Set<CoverageTier>;
-  focus: { lat: number; lng: number; tick: number } | null;
+  focus: MapFocus | null;
 }
 
-function MapController({
-  focus,
-}: {
-  focus: { lat: number; lng: number; tick: number } | null;
-}) {
+function MapController({ focus }: { focus: MapFocus | null }) {
   const map = useMap();
   useEffect(() => {
     if (!focus) return;
-    map.flyTo([focus.lat, focus.lng], 16, { animate: true, duration: 0.7 });
+    // Be tolerant of pre-discriminated-union focus state surviving an HMR
+    // reload. Validate finiteness before calling Leaflet — it throws on NaN.
+    if (focus.kind === 'bounds') {
+      const ok =
+        Number.isFinite(focus.minLat) &&
+        Number.isFinite(focus.minLng) &&
+        Number.isFinite(focus.maxLat) &&
+        Number.isFinite(focus.maxLng);
+      if (!ok) return;
+      map.flyToBounds(
+        [
+          [focus.minLat, focus.minLng],
+          [focus.maxLat, focus.maxLng],
+        ],
+        { animate: true, duration: 0.7, padding: [24, 24] },
+      );
+      return;
+    }
+    const legacy = focus as Partial<{ lat: number; lng: number; zoom: number }>;
+    if (!Number.isFinite(legacy.lat) || !Number.isFinite(legacy.lng)) return;
+    map.flyTo([legacy.lat as number, legacy.lng as number], legacy.zoom ?? 14, {
+      animate: true,
+      duration: 0.7,
+    });
   }, [focus, map]);
   return null;
 }
@@ -180,9 +210,14 @@ export function CoverageMap({
             <Popup>
               <div className="popup popup--coverage">
                 <strong>
-                  #{i + 1} {s.anchor.brand || s.anchor.name || s.anchor.poi_type}
+                  #{i + 1}{' '}
+                  {s.anchor
+                    ? s.anchor.brand || s.anchor.name || s.anchor.poi_type
+                    : 'Open underserved area'}
                 </strong>
-                <div className="muted">{s.anchor.poi_type}</div>
+                <div className="muted">
+                  {s.anchor ? s.anchor.poi_type : 'open area'}
+                </div>
                 <div className="popup__city">{s.reason}</div>
               </div>
             </Popup>

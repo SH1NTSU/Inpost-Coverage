@@ -1,30 +1,35 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
-  useCities,
   useCompetitors,
   useCoverageGridCells,
   useCoverageRecommendations,
   useCoverageSummary,
   useLockers,
+  useProvinces,
 } from '../../api/queries';
-import type { CityInfo, CoverageTier, GapSuggestion } from '../../api/contracts';
-import { CitySelector } from './CitySelector';
+import type { CoverageTier, GapSuggestion, ProvinceInfo } from '../../api/contracts';
 import { CoverageMap } from './CoverageMap';
 import { LayerControls } from './LayerControls';
+import { ProvinceSelector } from './ProvinceSelector';
 import { RecommendationsPanel } from './RecommendationsPanel';
 import { SummaryRibbon } from './SummaryRibbon';
 
 const DEFAULT_TIERS: CoverageTier[] = ['greenfield', 'competitive'];
 
-interface MapFocus {
-  lat: number;
-  lng: number;
-  tick: number;
-}
+export type MapFocus =
+  | { kind: 'point'; lat: number; lng: number; zoom: number; tick: number }
+  | {
+      kind: 'bounds';
+      minLat: number;
+      minLng: number;
+      maxLat: number;
+      maxLng: number;
+      tick: number;
+    };
 
 export default function CoverageView() {
-  const [cellM] = useState(400);
+  const [cellM, setCellM] = useState(1500);
   const [visibleTiers, setVisibleTiers] = useState<Set<CoverageTier>>(
     new Set(DEFAULT_TIERS),
   );
@@ -33,35 +38,45 @@ export default function CoverageView() {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [focus, setFocus] = useState<MapFocus | null>(null);
 
-  const [city, setCity] = useState<CityInfo | null>(null);
-  const { data: cities } = useCities();
+  const [province, setProvince] = useState<ProvinceInfo | null>(null);
+  const { data: provinces } = useProvinces();
 
   useEffect(() => {
-    if (!city && cities && cities.length > 0) {
-      const next = cities[0];
-      setCity(next);
+    if (!province && provinces && provinces.length > 0) {
+      const next = provinces[0];
+      setProvince(next);
       setFocus({
-        lat: next.center_lat,
-        lng: next.center_lng,
+        kind: 'bounds',
+        minLat: next.min_lat,
+        minLng: next.min_lng,
+        maxLat: next.max_lat,
+        maxLng: next.max_lng,
         tick: Date.now(),
       });
     }
-  }, [city, cities]);
+  }, [province, provinces]);
 
-  const cityName = city?.name ?? '';
-  const summary = useCoverageSummary(cityName, cellM);
-  const gridCells = useCoverageGridCells(cityName, cellM, !!summary.data);
-  const recs = useCoverageRecommendations(cityName, 5);
-  const competitors = useCompetitors(cityName);
-  const lockers = useLockers(undefined, cityName);
+  const provinceName = province?.name ?? '';
+  const summary = useCoverageSummary(provinceName, cellM);
+  const gridCells = useCoverageGridCells(provinceName, cellM, !!summary.data);
+  const recs = useCoverageRecommendations(provinceName, 50);
+  const competitors = useCompetitors(provinceName);
+  const lockers = useLockers(undefined, provinceName);
 
   const focusOn = useCallback((s: GapSuggestion) => {
-    setFocus({ lat: s.lat, lng: s.lng, tick: Date.now() });
+    setFocus({ kind: 'point', lat: s.lat, lng: s.lng, zoom: 15, tick: Date.now() });
   }, []);
 
-  const handleCityChange = useCallback((c: CityInfo) => {
-    setCity(c);
-    setFocus({ lat: c.center_lat, lng: c.center_lng, tick: Date.now() });
+  const handleProvinceChange = useCallback((p: ProvinceInfo) => {
+    setProvince(p);
+    setFocus({
+      kind: 'bounds',
+      minLat: p.min_lat,
+      minLng: p.min_lng,
+      maxLat: p.max_lat,
+      maxLng: p.max_lng,
+      tick: Date.now(),
+    });
   }, []);
 
   return (
@@ -75,7 +90,7 @@ export default function CoverageView() {
               lockers are due for replacement.
             </p>
           </div>
-          <CitySelector value={cityName} onChange={handleCityChange} />
+          <ProvinceSelector value={provinceName} onChange={handleProvinceChange} />
         </div>
       </header>
 
@@ -90,12 +105,31 @@ export default function CoverageView() {
         setShowCompetitors={setShowCompetitors}
         showSuggestions={showSuggestions}
         setShowSuggestions={setShowSuggestions}
+        cellM={cellM}
+        setCellM={setCellM}
       />
 
       <div className="coverage__body">
         <div className="coverage__map">
-          {(summary.isLoading || gridCells.isLoading) && (
-            <div className="map-loader">loading coverage…</div>
+          {(summary.isLoading ||
+            gridCells.isLoading ||
+            competitors.isLoading ||
+            lockers.isLoading) && (
+            <div
+              className="map-loader"
+              role="status"
+              aria-live="polite"
+            >
+              <div className="map-loader__spinner" aria-hidden="true" />
+              <div className="map-loader__label">
+                Computing coverage for{' '}
+                <strong>{provinceName || 'Poland'}</strong>…
+              </div>
+              <div className="map-loader__sub">
+                First load per province can take a few seconds — results are
+                cached afterwards.
+              </div>
+            </div>
           )}
           <CoverageMap
             cells={gridCells.data ?? []}

@@ -5,16 +5,15 @@ import "context"
 type PointRepository interface {
 	Upsert(ctx context.Context, p *Point) error
 
-	AllForCoverage(ctx context.Context, city string) ([]CoveragePoint, error)
+	AllForCoverage(ctx context.Context, bbox BoundingBox) ([]CoveragePoint, error)
 
-	BoundingBox(ctx context.Context, city string) (BoundingBox, error)
+	BoundingBox(ctx context.Context, province string) (BoundingBox, error)
 
-	ListCities(ctx context.Context, minPoints int) ([]CityInfo, error)
+	ListProvinces(ctx context.Context, minPoints int) ([]ProvinceInfo, error)
 }
 
-type CityInfo struct {
+type ProvinceInfo struct {
 	Name       string  `json:"name"`
-	Province   string  `json:"province"`
 	PointCount int     `json:"point_count"`
 	MinLat     float64 `json:"min_lat"`
 	MinLng     float64 `json:"min_lng"`
@@ -51,6 +50,7 @@ type CoveragePoint struct {
 	Latitude  float64
 	Longitude float64
 	IsNext    bool
+	Province  string
 }
 
 type BoundingBox struct {
@@ -59,7 +59,7 @@ type BoundingBox struct {
 
 type AnalyticsRepository interface {
 	Stats(ctx context.Context) (Stats, error)
-	ListLockers(ctx context.Context, statusFilter *PointStatus, city string) ([]LockerSummary, error)
+	ListLockers(ctx context.Context, statusFilter *PointStatus, province string) ([]LockerSummary, error)
 	GetLocker(ctx context.Context, id int64) (*LockerDetail, error)
 	History(ctx context.Context, id int64, limit int) ([]StateChange, error)
 	CurrentOutages(ctx context.Context) ([]OngoingOutage, error)
@@ -73,10 +73,10 @@ type AnalyticsRepository interface {
 }
 
 type CoverageCacheRepository interface {
-	LoadGrid(ctx context.Context, city string, cellMeters int, version string) (*CoverageGridSnapshot, error)
-	SaveGrid(ctx context.Context, city string, cellMeters int, version string, snap CoverageGridSnapshot) error
-	LoadRecommendations(ctx context.Context, city string, limit int, version string) (*CoverageRecommendations, error)
-	SaveRecommendations(ctx context.Context, city string, limit int, version string, recs CoverageRecommendations) error
+	LoadGrid(ctx context.Context, province string, cellMeters int, version string) (*CoverageGridSnapshot, error)
+	SaveGrid(ctx context.Context, province string, cellMeters int, version string, snap CoverageGridSnapshot) error
+	LoadRecommendations(ctx context.Context, province string, limit int, version string) (*CoverageRecommendations, error)
+	SaveRecommendations(ctx context.Context, province string, limit int, version string, recs CoverageRecommendations) error
 }
 
 type LockerUptime struct {

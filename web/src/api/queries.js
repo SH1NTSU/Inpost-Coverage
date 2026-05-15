@@ -1,25 +1,25 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from './client';
 export const queryKeys = {
-    cities: ['cities'],
-    lockers: (status, city) => ['lockers', status ?? 'all', city ?? 'all'],
+    provinces: ['provinces'],
+    lockers: (status, province) => ['lockers', status ?? 'all', province ?? 'all'],
     locker: (id) => ['lockers', id],
-    coverageSummary: (city, cellM) => ['coverage', 'summary', city, cellM],
-    coverageGridCells: (city, cellM) => ['coverage', 'grid-cells', city, cellM],
-    coverageRecommendations: (city, limit) => ['coverage', 'recs', city, limit],
-    competitors: (city) => ['coverage', 'competitors', city],
+    coverageSummary: (province, cellM) => ['coverage', 'summary', province, cellM],
+    coverageGridCells: (province, cellM) => ['coverage', 'grid-cells', province, cellM],
+    coverageRecommendations: (province, limit) => ['coverage', 'recs', province, limit],
+    competitors: (province) => ['coverage', 'competitors', province],
 };
-export function useCities() {
+export function useProvinces() {
     return useQuery({
-        queryKey: queryKeys.cities,
-        queryFn: () => api.cities(),
+        queryKey: queryKeys.provinces,
+        queryFn: () => api.provinces(),
         staleTime: 5 * 60_000,
     });
 }
-export function useLockers(status, city) {
+export function useLockers(status, province) {
     return useQuery({
-        queryKey: queryKeys.lockers(status, city),
-        queryFn: () => api.lockers(status, city),
+        queryKey: queryKeys.lockers(status, province),
+        queryFn: () => api.lockers(status, province),
         staleTime: 5 * 60_000,
     });
 }
@@ -30,35 +30,35 @@ export function useLocker(id) {
         enabled: typeof id === 'number' && id > 0,
     });
 }
-export function useCoverageSummary(city, cellM = 400) {
+export function useCoverageSummary(province, cellM = 800) {
     return useQuery({
-        queryKey: queryKeys.coverageSummary(city, cellM),
-        queryFn: () => api.coverageSummary(city, cellM),
-        enabled: !!city,
+        queryKey: queryKeys.coverageSummary(province, cellM),
+        queryFn: () => api.coverageSummary(province, cellM),
+        enabled: !!province,
         staleTime: 5 * 60_000,
     });
 }
-export function useCoverageGridCells(city, cellM = 400, enabled = true) {
+export function useCoverageGridCells(province, cellM = 800, enabled = true) {
     return useQuery({
-        queryKey: queryKeys.coverageGridCells(city, cellM),
-        queryFn: () => api.coverageGridCells(city, cellM),
-        enabled: !!city && enabled,
+        queryKey: queryKeys.coverageGridCells(province, cellM),
+        queryFn: () => api.coverageGridCells(province, cellM),
+        enabled: !!province && enabled,
         staleTime: 5 * 60_000,
     });
 }
-export function useCoverageRecommendations(city, limit = 10) {
+export function useCoverageRecommendations(province, limit = 10) {
     return useQuery({
-        queryKey: queryKeys.coverageRecommendations(city, limit),
-        queryFn: () => api.coverageRecommendations(city, limit),
-        enabled: !!city,
+        queryKey: queryKeys.coverageRecommendations(province, limit),
+        queryFn: () => api.coverageRecommendations(province, limit),
+        enabled: !!province,
         staleTime: 5 * 60_000,
     });
 }
-export function useCompetitors(city) {
+export function useCompetitors(province) {
     return useQuery({
-        queryKey: queryKeys.competitors(city),
-        queryFn: () => api.competitors(city),
-        enabled: !!city,
+        queryKey: queryKeys.competitors(province),
+        queryFn: () => api.competitors(province),
+        enabled: !!province,
         staleTime: 5 * 60_000,
     });
 }

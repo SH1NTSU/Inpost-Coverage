@@ -21,35 +21,35 @@ function qs(params) {
 }
 export const api = {
     isMock: USE_MOCK,
-    cities() {
-        return USE_MOCK ? mockApi.cities() : request('/api/v1/cities?min_points=20');
+    provinces() {
+        return USE_MOCK ? mockApi.provinces() : request('/api/v1/provinces');
     },
-    lockers(status, city) {
+    lockers(status, province) {
         if (USE_MOCK)
             return mockApi.lockers(status);
-        return request(`/api/v1/lockers${qs({ status, city })}`);
+        return request(`/api/v1/lockers${qs({ status, province })}`);
     },
     locker(id) {
         return USE_MOCK ? mockApi.locker(id) : request(`/api/v1/lockers/${id}`);
     },
-    coverageSummary(city, cellM = 400) {
+    coverageSummary(province, cellM = 800) {
         return USE_MOCK
             ? mockApi.coverageGrid(cellM).then((r) => r.summary)
-            : request(`/api/v1/coverage/summary${qs({ city, cell_m: cellM })}`);
+            : request(`/api/v1/coverage/summary${qs({ province, cell_m: cellM })}`);
     },
-    coverageGridCells(city, cellM = 400) {
+    coverageGridCells(province, cellM = 800) {
         return USE_MOCK
             ? mockApi.coverageGrid(cellM).then((r) => r.cells)
-            : request(`/api/v1/coverage/grid-cells${qs({ city, cell_m: cellM })}`);
+            : request(`/api/v1/coverage/grid-cells${qs({ province, cell_m: cellM })}`);
     },
-    coverageRecommendations(city, limit = 10) {
+    coverageRecommendations(province, limit = 10) {
         return USE_MOCK
-            ? mockApi.coverageRecommendations(400, limit)
-            : request(`/api/v1/coverage/recommendations${qs({ city, limit })}`);
+            ? mockApi.coverageRecommendations(800, limit)
+            : request(`/api/v1/coverage/recommendations${qs({ province, limit })}`);
     },
-    competitors(city) {
+    competitors(province) {
         return USE_MOCK
             ? mockApi.competitors()
-            : request(`/api/v1/coverage/competitors${qs({ city })}`);
+            : request(`/api/v1/coverage/competitors${qs({ province })}`);
     },
 };

@@ -49,12 +49,13 @@ func (r *PointRepo) Upsert(ctx context.Context, p *domain.Point) error {
 	).Scan(&p.ID)
 }
 
-func (r *PointRepo) AllForCoverage(ctx context.Context, city string) ([]domain.CoveragePoint, error) {
+func (r *PointRepo) AllForCoverage(ctx context.Context, bbox domain.BoundingBox) ([]domain.CoveragePoint, error) {
 	const q = `
-SELECT id, latitude, longitude, COALESCE(is_next, false)
+SELECT id, latitude, longitude, COALESCE(is_next, false), COALESCE(province, '')
 FROM points
-WHERE ($1::TEXT = '' OR city = $1)`
-	rows, err := r.DB.Query(ctx, q, city)
+WHERE ($1::FLOAT8 = 0 AND $2::FLOAT8 = 0 AND $3::FLOAT8 = 0 AND $4::FLOAT8 = 0)
+   OR (latitude BETWEEN $1 AND $3 AND longitude BETWEEN $2 AND $4)`
+	rows, err := r.DB.Query(ctx, q, bbox.MinLat, bbox.MinLng, bbox.MaxLat, bbox.MaxLng)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +63,7 @@ WHERE ($1::TEXT = '' OR city = $1)`
 	var out []domain.CoveragePoint
 	for rows.Next() {
 		var p domain.CoveragePoint
-		if err := rows.Scan(&p.ID, &p.Latitude, &p.Longitude, &p.IsNext); err != nil {
+		if err := rows.Scan(&p.ID, &p.Latitude, &p.Longitude, &p.IsNext, &p.Province); err != nil {
 			return nil, err
 		}
 		out = append(out, p)
@@ -70,52 +71,51 @@ WHERE ($1::TEXT = '' OR city = $1)`
 	return out, rows.Err()
 }
 
-func (r *PointRepo) BoundingBox(ctx context.Context, city string) (domain.BoundingBox, error) {
+func (r *PointRepo) BoundingBox(ctx context.Context, province string) (domain.BoundingBox, error) {
 	const q = `
 SELECT MIN(latitude), MIN(longitude), MAX(latitude), MAX(longitude)
 FROM points
-WHERE ($1::TEXT = '' OR city = $1)`
+WHERE ($1::TEXT = '' OR province = $1)`
 	var b domain.BoundingBox
-	err := r.DB.QueryRow(ctx, q, city).Scan(&b.MinLat, &b.MinLng, &b.MaxLat, &b.MaxLng)
+	err := r.DB.QueryRow(ctx, q, province).Scan(&b.MinLat, &b.MinLng, &b.MaxLat, &b.MaxLng)
 	return b, err
 }
 
-func (r *PointRepo) ListCities(ctx context.Context, minPoints int) ([]domain.CityInfo, error) {
+func (r *PointRepo) ListProvinces(ctx context.Context, minPoints int) ([]domain.ProvinceInfo, error) {
 	if minPoints < 1 {
 		minPoints = 1
 	}
 	const q = `
 SELECT
-    city,
-    COALESCE(MAX(province), '')      AS province,
+    province,
     COUNT(*)::INT                     AS point_count,
     MIN(latitude)                    AS min_lat,
     MIN(longitude)                   AS min_lng,
     MAX(latitude)                    AS max_lat,
     MAX(longitude)                   AS max_lng,
-    (MIN(latitude) + MAX(latitude)) / 2  AS center_lat,
-    (MIN(longitude) + MAX(longitude)) / 2 AS center_lng
+    AVG(latitude)                    AS center_lat,
+    AVG(longitude)                   AS center_lng
 FROM points
-WHERE city IS NOT NULL AND city <> ''
-GROUP BY city
+WHERE province IS NOT NULL AND province <> ''
+GROUP BY province
 HAVING COUNT(*) >= $1
-ORDER BY COUNT(*) DESC, city ASC`
+ORDER BY COUNT(*) DESC, province ASC`
 	rows, err := r.DB.Query(ctx, q, minPoints)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []domain.CityInfo
+	var out []domain.ProvinceInfo
 	for rows.Next() {
-		var c domain.CityInfo
+		var p domain.ProvinceInfo
 		if err := rows.Scan(
-			&c.Name, &c.Province, &c.PointCount,
-			&c.MinLat, &c.MinLng, &c.MaxLat, &c.MaxLng,
-			&c.CenterLat, &c.CenterLng,
+			&p.Name, &p.PointCount,
+			&p.MinLat, &p.MinLng, &p.MaxLat, &p.MaxLng,
+			&p.CenterLat, &p.CenterLng,
 		); err != nil {
 			return nil, err
 		}
-		out = append(out, c)
+		out = append(out, p)
 	}
 	return out, rows.Err()
 }

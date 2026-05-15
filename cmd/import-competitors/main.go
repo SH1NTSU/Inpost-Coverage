@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"os/signal"
 	"syscall"
 
@@ -14,7 +15,7 @@ import (
 )
 
 func main() {
-	city := flag.String("city", "", "Optional city to constrain the bbox; empty = whole point set")
+	province := flag.String("province", "", "Province name. Empty = iterate every province from the points table (smaller bboxes, friendlier to Overpass).")
 	flag.Parse()
 
 	cfg, err := config.Load()
@@ -37,31 +38,48 @@ func main() {
 	comps := pgrepo.NewCompetitorRepo(pool)
 	op := overpass.New("https://overpass-api.de/api/interpreter")
 
-	bb, err := points.BoundingBox(ctx, *city)
-	if err != nil {
-		log.Error("bbox", "err", err)
-		return
+	var provinces []string
+	if *province != "" {
+		provinces = []string{*province}
+	} else {
+		list, err := points.ListProvinces(ctx, 1)
+		if err != nil {
+			log.Error("list provinces", "err", err)
+			return
+		}
+		for _, p := range list {
+			provinces = append(provinces, p.Name)
+		}
+		log.Info("iterating provinces", "count", len(provinces))
 	}
-	bb.MinLat -= 0.01
-	bb.MinLng -= 0.015
-	bb.MaxLat += 0.01
-	bb.MaxLng += 0.015
-	log.Info("bounding box", "city", *city,
-		"min_lat", bb.MinLat, "min_lng", bb.MinLng,
-		"max_lat", bb.MaxLat, "max_lng", bb.MaxLng)
 
-	log.Info("fetching from Overpass…")
-	items, err := op.FetchParcelLockers(ctx, bb)
-	if err != nil {
-		log.Error("overpass fetch", "err", err)
-		return
-	}
-	log.Info("fetched", "competitors", len(items))
+	var totalFetched int
+	for i, name := range provinces {
+		bb, err := points.BoundingBox(ctx, name)
+		if err != nil {
+			log.Error("bbox", "province", name, "err", err)
+			continue
+		}
+		bb.MinLat -= 0.01
+		bb.MinLng -= 0.015
+		bb.MaxLat += 0.01
+		bb.MaxLng += 0.015
+		log.Info("fetching", "i", i+1, "of", len(provinces), "province", name,
+			"bbox", fmt.Sprintf("%.3f,%.3f→%.3f,%.3f", bb.MinLat, bb.MinLng, bb.MaxLat, bb.MaxLng))
 
-	if err := comps.UpsertBatch(ctx, items); err != nil {
-		log.Error("upsert", "err", err)
-		return
+		items, err := op.FetchParcelLockers(ctx, bb)
+		if err != nil {
+			log.Error("overpass fetch", "province", name, "err", err)
+			continue
+		}
+		if err := comps.UpsertBatch(ctx, items); err != nil {
+			log.Error("upsert", "province", name, "err", err)
+			continue
+		}
+		totalFetched += len(items)
+		log.Info("done", "province", name, "competitors", len(items))
 	}
+
 	total, _ := comps.Count(ctx)
-	log.Info("import done", "total_in_db", total)
+	log.Info("import finished", "total_in_db", total, "fetched_this_run", totalFetched)
 }

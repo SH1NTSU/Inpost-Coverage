@@ -50,7 +50,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleListLockers(w http.ResponseWriter, r *http.Request) {
 	var filter *domain.PointStatus
-	city := r.URL.Query().Get("city")
+	province := r.URL.Query().Get("province")
 	if raw := r.URL.Query().Get("status"); raw != "" {
 		switch domain.PointStatus(raw) {
 		case domain.StatusOperating, domain.StatusDisabled:
@@ -61,7 +61,7 @@ func (s *Server) handleListLockers(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	lockers, err := s.Analytics.ListLockers(r.Context(), filter, city)
+	lockers, err := s.Analytics.ListLockers(r.Context(), filter, province)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -153,9 +153,9 @@ func (s *Server) handleUptimeDistribution(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleCoverageGrid(w http.ResponseWriter, r *http.Request) {
-	cellM := intQuery(r, "cell_m", 300)
-	city := r.URL.Query().Get("city")
-	snap, err := s.Coverage.Grid(r.Context(), city, cellM)
+	cellM := intQuery(r, "cell_m", 800)
+	province := r.URL.Query().Get("province")
+	snap, err := s.Coverage.Grid(r.Context(), province, cellM)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -167,9 +167,9 @@ func (s *Server) handleCoverageGrid(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCoverageSummary(w http.ResponseWriter, r *http.Request) {
-	cellM := intQuery(r, "cell_m", 300)
-	city := r.URL.Query().Get("city")
-	snap, err := s.Coverage.Grid(r.Context(), city, cellM)
+	cellM := intQuery(r, "cell_m", 800)
+	province := r.URL.Query().Get("province")
+	snap, err := s.Coverage.Grid(r.Context(), province, cellM)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -178,9 +178,9 @@ func (s *Server) handleCoverageSummary(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleCoverageGridCells(w http.ResponseWriter, r *http.Request) {
-	cellM := intQuery(r, "cell_m", 300)
-	city := r.URL.Query().Get("city")
-	snap, err := s.Coverage.Grid(r.Context(), city, cellM)
+	cellM := intQuery(r, "cell_m", 800)
+	province := r.URL.Query().Get("province")
+	snap, err := s.Coverage.Grid(r.Context(), province, cellM)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -189,9 +189,9 @@ func (s *Server) handleCoverageGridCells(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleCoverageRecommendations(w http.ResponseWriter, r *http.Request) {
-	city := r.URL.Query().Get("city")
+	province := r.URL.Query().Get("province")
 	limit := intQuery(r, "limit", 10)
-	out, err := s.Coverage.Recommendations(r.Context(), city, limit)
+	out, err := s.Coverage.Recommendations(r.Context(), province, limit)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -206,20 +206,8 @@ func (s *Server) handleCoverageRecommendations(w http.ResponseWriter, r *http.Re
 }
 
 func (s *Server) handleCoverageCompetitors(w http.ResponseWriter, r *http.Request) {
-	city := r.URL.Query().Get("city")
-	bb, err := s.Points.BoundingBox(r.Context(), city)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
-
-	if !bb.IsZero() {
-		bb.MinLat -= 0.01
-		bb.MinLng -= 0.015
-		bb.MaxLat += 0.01
-		bb.MaxLng += 0.015
-	}
-	out, err := s.Competitors.AllForCoverage(r.Context(), bb)
+	province := r.URL.Query().Get("province")
+	out, err := s.Coverage.ProvinceCompetitors(r.Context(), province)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -227,9 +215,9 @@ func (s *Server) handleCoverageCompetitors(w http.ResponseWriter, r *http.Reques
 	writeJSON(w, http.StatusOK, jsonArray(out))
 }
 
-func (s *Server) handleCities(w http.ResponseWriter, r *http.Request) {
-	min := intQuery(r, "min_points", 20)
-	out, err := s.Points.ListCities(r.Context(), min)
+func (s *Server) handleProvinces(w http.ResponseWriter, r *http.Request) {
+	min := intQuery(r, "min_points", 1)
+	out, err := s.Points.ListProvinces(r.Context(), min)
 	if err != nil {
 		writeError(w, err)
 		return
