@@ -201,8 +201,8 @@ export function CoverageMap({
             center={[s.lat, s.lng]}
             radius={10}
             pathOptions={{
-              color: '#fbbf24',
-              fillColor: '#fbbf24',
+              color: '#ffcc00',
+              fillColor: '#ffcc00',
               fillOpacity: 0.9,
               weight: 2,
             }}

@@ -1,10 +1,15 @@
 :root {
-  --bg: #0b1020;
-  --bg-elev: #111827;
+  /* InPost brand: signature locker yellow (#FFCC00) on a deep dark
+     surface. Choropleth tier colors (red / orange / blue / grey) stay
+     as-is because they carry data meaning, not brand identity. */
+  --bg: #0a0e18;
+  --bg-elev: #121826;
   --border: #1f2937;
-  --fg: #e5e7eb;
+  --fg: #f0f0f0;
   --fg-muted: #9ca3af;
-  --accent: #fbbf24;
+  --accent: #ffcc00;
+  --accent-dim: rgba(255, 204, 0, 0.6);
+  --accent-glow: rgba(255, 204, 0, 0.35);
   --good: #10b981;
   --bad: #ef4444;
   --radius: 10px;
@@ -61,7 +66,7 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   background: var(--accent);
   border-radius: 50%;
   display: inline-block;
-  box-shadow: 0 0 12px rgba(251, 191, 36, 0.6);
+  box-shadow: 0 0 12px var(--accent-dim);
 }
 .topbar__nav {
   display: flex;
@@ -85,7 +90,7 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   padding: 0.25rem 0.55rem;
   border-radius: 6px;
   background: #422006;
-  color: #fbbf24;
+  color: #ffcc00;
   border: 1px solid #92400e;
 }
 
@@ -166,7 +171,7 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   height: 42px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.15);
-  border-top-color: var(--accent, #fbbf24);
+  border-top-color: var(--accent, #ffcc00);
   animation: map-loader-spin 0.85s linear infinite;
 }
 .map-loader__label {
@@ -401,7 +406,7 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
 }
 .fav-btn:hover { border-color: var(--accent); }
 .fav-btn.is-starred {
-  background: rgba(251, 191, 36, 0.12);
+  background: rgba(255, 204, 0, 0.12);
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -703,7 +708,7 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   background: #9ca3af;
 }
 .layers__group--points .layers__chip--point:has(input:checked) .layers__swatch--suggestions {
-  background: #fbbf24;
+  background: #ffcc00;
 }
 
 .layers__group--points .layers__chip--point:has(input:not(:checked)) {
@@ -850,7 +855,7 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   letter-spacing: 0.05em;
   padding: 0.1rem 0.4rem;
   border-radius: 999px;
-  background: rgba(251, 191, 36, 0.12);
+  background: rgba(255, 204, 0, 0.12);
   color: var(--accent);
 }
 .anchor-name {
@@ -884,15 +889,15 @@ h3 { font-size: 0.95rem; margin: 0 0 0.6rem; color: var(--fg-muted); font-weight
   transition: background 0.12s, border-color 0.12s;
 }
 .recs__filter-chip:hover:not(:disabled) {
-  border-color: var(--accent, #fbbf24);
+  border-color: var(--accent, #ffcc00);
 }
 .recs__filter-chip:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 .recs__filter-chip--active {
-  background: var(--accent, #fbbf24);
-  border-color: var(--accent, #fbbf24);
+  background: var(--accent, #ffcc00);
+  border-color: var(--accent, #ffcc00);
   color: #0b0f17;
   font-weight: 600;
 }
