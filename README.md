@@ -1,48 +1,102 @@
-# InPost Scraper
 
-Minimal scraper-only scaffold for collecting InPost point status snapshots.
+# [InPost Network Control]
 
-## Run locally
+## Author
 
-1. `make docker-up`
-2. `make migrate-up`
-3. `make run-scraper`
+- **Name:** [Marcel Budziszewski]
+- **Email:** [u84_marbud_waw@technischools.com]
 
-The scraper performs one scrape immediately at startup, then continues on
-`SCRAPER_INTERVAL` (default `5m`). If you want to let it collect overnight,
-start `make run-scraper` and leave that process running.
+## Overview
 
-## Data model
+[In 2–3 sentences, describe what you built. What does it do? What problem does it solve or what question does it answer?] I live in the village under Warsaw so the problem for me was the distance to the closest InPost point. **InPost Network Control** shows where is the best location to place a new point according to the nearest POI as well as including competition and habitability across Poland.
 
-- `points` stores the latest static metadata for each InPost point.
-- `availability_snapshots` stores only `point_id`, `captured_at`, and `status`.
+## Demo & Description
 
-## Configuration
+[Describe your solution in detail. What does it do? How does it work? What approach did you take and why? Cover the key technical choices, architecture, and anything else that helps us understand your project without reading every line of code.] 
 
-Use `.env.example` as the reference for the required environment variables.
+**InPost Network Control** is a tool for finding the best places to install new
+InPost points across Poland.
 
-## Deploy (Vercel + API + database)
+The backend pulls existing locker positions from the provided API into
+Postgres. For each ~1.5 km cell on the map it asks two questions — *how far is
+the nearest InPost?* and *how far is the nearest competitor?* — producing four
+tiers: Greenfield (no operator within 1 km), Competitive gap (only a
+competitor nearby), InPost only, and
+Saturated.
 
-### What belongs on Vercel
+Raw distance isn't enough since most of Poland is farmland. A cell only counts
+as inhabited if there's an OSM signal nearby: a commercial POI within 1.5 km,
+a town node within 1.5 km, or a village node within 500 m. Water, forest, and
+farmland are excluded via OSM polygons. Hamlet nodes are ignored — they tag
+5-house clusters and would paint whole regions red.
 
-- **React/Vite UI (`web/`)** — yes. Vercel is ideal for the static SPA and CDN.
-- **PostgreSQL** — not as a process you run on Vercel. Use a **managed Postgres** (Neon, Supabase, Vercel Postgres, Railway, Render, RDS, etc.) and set `DATABASE_URL` on the API host.
-- **Go HTTP API (`cmd/api`)** — not as a long-lived server on Vercel’s default model. Vercel is built around serverless/edge, not a always-on Chi server. Run the API on **Fly.io**, **Railway**, **Render**, **Google Cloud Run**, **DigitalOcean App Platform**, or similar, using `Dockerfile.api` or `go run ./cmd/api` with your env vars.
-- **Scraper (`cmd/scraper`)** — same as the API: a separate worker/container or cron job on one of those platforms, not Vercel.
+Recommendations run the same scan but try to snap each underserved spot to a
+real shop or fuel station within 250 m. About 70% are anchored ("install a
+Paczkomat at this Żabka"); the rest are open areas where a private host could
+provide a site. Competitor and POI data come from the Overpass API — ~13k
+competitor lockers and ~180k anchor POIs total.
 
-### Vercel (frontend)
+The biggest issue was latency. A naive implementation paints
+23 000+ rectangles per province and the browser melts. Three things keep it
+usable:
 
-1. In the Vercel project, set **Root Directory** to `web` (this repo is Go + web; only `web` should build on Vercel).
-2. Under **Environment Variables** (for *Production* and *Preview* if you use previews), set:
-The UI calls your API using `VITE_API_BASE_URL` plus paths such as `/api/v1/...`. Leaving this unset in production sends `/api` to Vercel itself and will not work.
-3. `web/vercel.json` adds a SPA fallback so React Router paths resolve to `index.html`.
+1. Server-side cell cap — top 1 500 greenfield + 500 competitive cells per
+   province. Stats stay accurate; render set stays small.
+2. Cached per-province snapshots in Redis + Postgres, warmed in parallel
+   on startup so most clicks hit a hot cache.
+3. Independent client fetches for grid / summary / competitors / lockers /
+   recommendations, so the map paints progressively instead of waiting for the
+   slowest endpoint.
 
-### Go API (any container-friendly host)
+First cold request per province still takes a few seconds.
+After that, everything is sub-second.
 
-1. Build with `Dockerfile.api` at the repo root, or build the binary with `go build -o api ./cmd/api`.
-2. Set `DATABASE_URL`, `CORS_ALLOWED_ORIGINS` (include your `https://*.vercel.app` and custom domain), optional `REDIS_ADDR`, and the rest from `.env.example`.
-3. Run migrations against that database (`go run ./cmd/migrate up` with the same `DATABASE_URL`).
+Deployed solution: [inpost-network-control.vercel.app](https://inpost-network-control.vercel.app/)
 
-### CORS
+If applicable, include:
+- a link to the deployed solution
+- screenshots of the UI or key outputs
+- a short screen recording or demo video
 
-`CORS_ALLOWED_ORIGINS` must list every browser origin that talks to the API (comma-separated), e.g. `http://localhost:5173` and `https://your-project.vercel.app`.
+## Technologies
+
+[List the technologies, frameworks, and libraries you used. You can also explain why you decided to use them.]
+For the frontend side, I used React. For the server side I used Golang. These are my most used languages. I used PostgreSQL for db and Redis for the cache. As for the libraries and frameworks, I used go-chi and wrote some useful pkg that I needed. Leaflet takes care of the map rendering.
+
+## How to run
+
+### Prerequisites
+
+Anything modern works. Tested on macOS 24 with the following:
+
+- **Go 1.24+** — backend
+- **Node 18+** (with `npm`) — frontend
+- **Docker** with `docker-compose` — runs Postgres 16 and Redis 7 locally so you don't have to install them yourself
+- **make** — orchestrates everything below
+
+That's it. The Makefile copies `.env.example` → `.env` on first run, so no manual config needed for local dev.
+
+### Build & run
+
+```bash
+# 1. Clone
+git clone git@github.com:SH1NTSU/Inpost-Coverage.git
+cd Inpost-Coverage
+
+# 2. Just run this command to start the whole stack
+make start
+```
+
+## What I would do with more time
+
+[If you had another week, what would you add, refactor, or change? Prioritize — what would you tackle first and why?] Two things: first, continue the current idea, optimize it and add worthiness of placing a point in the desired area. And second, I would go back to my first idea of creating a point predictability engine. I dropped this cause in a week's time I couldn't gather sufficient data for the showcase and functionality of the engine.
+
+## AI usage
+
+[Did you use AI tools (ChatGPT, Copilot, Claude, etc.) while working on this? If yes, describe how — which parts did they help with, and how did you verify and adapt their output?]
+
+I used Claude Code to help me with filling some gaps, fixing bugs and planning with me the implementation. And it helped me with creating the Frontend side. I checked its output myself to ensure that it doesn't do anything stupid.
+
+## Anything else?
+
+[Is there something we should know that doesn't fit the sections above? A design choice that needs context, a creative twist, a rabbit hole you went down — this is your space.] I didn't know if I could but I used a different API for the help but always ensured that the API provided was primarily used. And the toughest thing in this project was the amount of data that needed to be rendered and processed on the frontend.
