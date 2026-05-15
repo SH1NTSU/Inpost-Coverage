@@ -30,6 +30,10 @@ type Redis struct {
 }
 
 type HTTP struct {
+	// Render / Fly / Heroku / Cloud Run inject a `PORT` env var that
+	// services must bind to. When set, it wins over HTTP_ADDR so the
+	// platform's expected port is honoured automatically.
+	Port           string        `env:"PORT"`
 	Addr           string        `env:"HTTP_ADDR" envDefault:":8090"`
 	ReadTimeout    time.Duration `env:"HTTP_READ_TIMEOUT" envDefault:"15s"`
 	WriteTimeout   time.Duration `env:"HTTP_WRITE_TIMEOUT" envDefault:"30s"`

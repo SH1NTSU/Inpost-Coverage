@@ -1,0 +1,34 @@
+# Render.com blueprint. Apply via:
+#   dashboard.render.com → New → Blueprint → connect this repo.
+# Render reads this file and provisions the service; secrets marked
+# `sync: false` are filled in once via the dashboard (DATABASE_URL,
+# REDIS_URL, CORS_ALLOWED_ORIGINS) and persisted thereafter.
+services:
+  - type: web
+    name: paczkomat-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    region: frankfurt
+    plan: free
+    healthCheckPath: /api/v1/stats
+    envVars:
+      # Render auto-injects PORT; the API picks it up via cfg.HTTP.Port and
+      # binds to :$PORT, overriding the local-dev default of :8090.
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: INPOST_BASE_URL
+        value: https://api-pl-points.easypack24.net
+      - key: COVERAGE_PRECOMPUTE_INTERVAL
+        value: 30m
+      - key: COVERAGE_DEFAULT_CELL_METERS
+        value: "1500"
+      - key: COVERAGE_DEFAULT_RECOMMENDATIONS_TOP
+        value: "50"
+      - key: LOG_LEVEL
+        value: info
+      - key: LOG_FORMAT
+        value: json

@@ -112,8 +112,13 @@ func main() {
 		AllowedOrigins: cfg.HTTP.AllowedOrigins,
 	}
 
+	listenAddr := cfg.HTTP.Addr
+	if cfg.HTTP.Port != "" {
+		// Render/Heroku/Cloud Run convention: bind to 0.0.0.0:$PORT.
+		listenAddr = ":" + cfg.HTTP.Port
+	}
 	httpSrv := &http.Server{
-		Addr:         cfg.HTTP.Addr,
+		Addr:         listenAddr,
 		Handler:      srv.Router(),
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,
@@ -121,7 +126,7 @@ func main() {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("http listen", "addr", cfg.HTTP.Addr)
+		log.Info("http listen", "addr", listenAddr)
 		errCh <- httpSrv.ListenAndServe()
 	}()
 
